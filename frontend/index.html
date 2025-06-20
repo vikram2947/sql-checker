@@ -48,49 +48,75 @@
   <h1>🧠 Laravel SQL AI Assistant</h1>
 
   <label for="sql">Paste SQL Query:</label>
-  <textarea id="sql" rows="5" placeholder="SELECT * FROM orders WHERE user_id = ?"></textarea>
+  <textarea id="sql" rows="5" placeholder="SELECT * FROM orders WHERE company_id = 1;"></textarea>
 
   <label for="path">Laravel Project Path:</label>
   <input type="text" id="path" placeholder="/absolute/path/to/laravel/app">
 
-  <button onclick="analyzeQuery()">Analyze Query</button>
+  <button onclick="runFullAnalysis()">Analyze</button>
 
   <div id="output" class="result"></div>
 
   <script>
-    async function analyzeQuery() {
+    async function runFullAnalysis() {
       const sql = document.getElementById("sql").value.trim();
       const path = document.getElementById("path").value.trim();
       const output = document.getElementById("output");
+      output.innerHTML = "⏳ Indexing codebase...";
 
-      output.innerHTML = "⏳ Analyzing...";
-
-      const res = await fetch("http://localhost:5000/analyze", {
+      // Step 1: Embed codebase
+      const embedRes = await fetch("http://localhost:5000/embed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql, project_path: path }),
+        body: JSON.stringify({ project_path: path })
       });
 
-      const data = await res.json();
+      const embedResult = await embedRes.json();
+      if (embedResult.error) {
+        output.innerHTML = `<p class="error">❌ ${embedResult.error}</p>`;
+        return;
+      }
+
+      output.innerHTML = `✅ Indexed ${embedResult.count} lines. Now analyzing query...`;
+
+      // Step 2: Analyze SQL
+      const analyzeRes = await fetch("http://localhost:5000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql })
+      });
+
+      const data = await analyzeRes.json();
       output.innerHTML = "";
 
       if (!data.found) {
-        output.innerHTML = `<p class="error">❌ ${data.message}</p>`;
+        output.innerHTML = `<p class="error">❌ ${data.message || 'No match found.'}</p>`;
         return;
       }
 
       output.innerHTML += `
         <p><strong>📄 File:</strong> ${data.match.file}</p>
         <p><strong>📍 Line:</strong> ${data.match.line}</p>
-        <p><strong>💡 Query Type:</strong> ${data.query_type}</p>
+        <p><strong>💡 Query Type:</strong> ${data.match.query_type}</p>
         <p><strong>🔐 Input Validated:</strong> ${data.validated ? "✅ Yes" : "❌ No"}</p>
+        <p><strong>📊 Performance Score:</strong> ${data.performance_score}/100 - ${data.performance_rating}</p>
         <p><strong>🧠 Code:</strong></p>
         <pre>${data.match.code}</pre>
-        <h3>🚀 Suggestions:</h3>
+        
+        ${data.validation_methods && data.validation_methods.length > 0 ? `
+        <h3>✅ Validation Methods Found:</h3>
+        <ul>${data.validation_methods.map(m => `<li>${m}</li>`).join('')}</ul>
+        ` : ''}
+        
+        ${data.security_issues && data.security_issues.length > 0 ? `
+        <h3>🚨 Security Issues:</h3>
+        <ul>${data.security_issues.map(s => `<li>${s}</li>`).join('')}</ul>
+        ` : ''}
+        
+        <h3>🚀 Optimization Suggestions:</h3>
         <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
       `;
     }
   </script>
-
 </body>
 </html>
