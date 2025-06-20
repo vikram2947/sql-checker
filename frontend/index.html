@@ -45,7 +45,6 @@
   </style>
 </head>
 <body>
-
   <h1>🧠 Laravel SQL AI Assistant</h1>
 
   <label for="sql">Paste SQL Query:</label>
@@ -83,6 +82,7 @@
       output.innerHTML += `
         <p><strong>📄 File:</strong> ${data.match.file}</p>
         <p><strong>📍 Line:</strong> ${data.match.line}</p>
+        <p><strong>💡 Query Type:</strong> ${data.query_type}</p>
         <p><strong>🔐 Input Validated:</strong> ${data.validated ? "✅ Yes" : "❌ No"}</p>
         <p><strong>🧠 Code:</strong></p>
         <pre>${data.match.code}</pre>

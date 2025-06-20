@@ -20,6 +20,16 @@ def read_php_files(root):
                 php_files.append(os.path.join(dirpath, file))
     return php_files
 
+def classify_query(code_line):
+    if "DB::select" in code_line or "DB::statement" in code_line:
+        return "Raw SQL"
+    elif "DB::table" in code_line:
+        return "Query Builder"
+    elif "->where" in code_line and "::" in code_line:
+        return "Eloquent"
+    else:
+        return "Unknown"
+
 def find_sql_occurrences(sql_input, codebase_root):
     norm_query = normalize_sql(sql_input)
     files = read_php_files(codebase_root)
@@ -30,15 +40,17 @@ def find_sql_occurrences(sql_input, codebase_root):
             lines = f.readlines()
 
         for i, line in enumerate(lines):
-            if 'select' in line.lower():
+            if 'select' in line.lower() or 'where' in line.lower() or 'DB::' in line:
                 line_clean = normalize_sql(line)
                 sim = similar(norm_query, line_clean)
-                if sim > 0.5:
+
+                if sim > 0.4 or any(word in line for word in ['DB::select', 'DB::table', '->where']):
                     matches.append({
                         "file": file,
                         "line": i + 1,
                         "code": line.strip(),
-                        "similarity": sim
+                        "similarity": sim,
+                        "query_type": classify_query(line)
                     })
 
     return sorted(matches, key=lambda m: -m['similarity'])
@@ -119,6 +131,7 @@ def analyze():
         "found": True,
         "match": top,
         "validated": validated,
+        "query_type": top['query_type'],
         "suggestions": suggestions
     })
 
